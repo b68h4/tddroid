@@ -14,6 +14,7 @@
   
 #### Working Languages
  - I think it works in all languages :))
+ - Excluding Java (Not Working Java Use JNI and Java Build Files [Comment](https://github.com/tdlib/td/issues/77#issuecomment-640719893))
 
 
 ## Changes (v1.6.0)
@@ -30,6 +31,7 @@
 
 > [KDAB/androidopenssl - Extracted PreCompile OpenSsl .so Files Thanks](https://github.com/KDAB/android_openssl)
 
+> [levlam Prebuilt Build Archives](https://github.com/tdlib/td/issues/77#issuecomment-640719893)
 ## Usage
 
 - Enter the tdbuild/td/tddroid/libtdjsonandroid Folder
