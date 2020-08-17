@@ -16,7 +16,7 @@
  - I think it works in all languages :))
 
 
-## Changes (v1.6.0 / 7)
+## Changes (v1.6.0)
 - egramtel / tdsharp Linux Bindings Edited and Adapt LibTdJsonAndroid (tdbuild)
   - Interop.cs Fixed
 - Ndk-Bundle r21 Included in Project (Easy Compile)
@@ -25,7 +25,9 @@
 - Build.sh Build-All.sh Created Successfully Running
 ## Used Projects
 > [egramtel/tdsharp - Official TDLib .NET Library](https://github.com/egramtel/tdsharp)
+
 > [tdlib/td - Official TDLib Library](https://github.com/tdlib/td)
+
 > [KDAB/androidopenssl - Extracted PreCompile OpenSsl .so Files Thanks](https://github.com/KDAB/android_openssl)
 
 ## Usage
