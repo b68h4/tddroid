@@ -1,9 +1,11 @@
 # tddroid
-## TDLib and TDSharp Arm/Android/iOS  Build Project
+## TDLib and TDSharp Arm Build Project
 
 > Use in Your Xamarin Projects or Other Arm Platforms.
 
 > It Was Built To Compile TDLib Easily And Without The Worries Of Addiction.
+
+
 
 #### Working Platforms
 - x86
@@ -16,6 +18,7 @@
  - I think it works in all languages :))
  - Excluding Java (Not Working Java Use JNI and Java Build Files [Comment](https://github.com/tdlib/td/issues/77#issuecomment-640719893))
 
+**[Build Folder](tdbuild/td/tddroid/libtdjsonandroid)**
 
 ## Changes (v1.6.0)
 - egramtel / tdsharp Linux Bindings Edited and Adapt LibTdJsonAndroid (tdbuild)
