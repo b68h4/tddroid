@@ -1,5 +1,5 @@
 # tddroid
-## TDLib and TDSharp Arm Build Project
+## TDLib and TDSharp Build Project
 
 > Use in Your Xamarin Projects or Other Arm Platforms.
 
