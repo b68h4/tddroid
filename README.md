@@ -23,6 +23,10 @@
   - Android Sdk Root Added to build-all.sh File
 - OpenSsl-1.1.1g Builds Collected and Added
 - Build.sh Build-All.sh Created Successfully Running
+## Used Projects
+> [egramtel/tdsharp - Official TDLib .NET Library](https://github.com/egramtel/tdsharp)
+> [tdlib/td - Official TDLib Library](https://github.com/tdlib/td)
+> [KDAB/androidopenssl - Extracted PreCompile OpenSsl .so Files Thanks](https://github.com/KDAB/android_openssl)
 
 ## Usage
 
