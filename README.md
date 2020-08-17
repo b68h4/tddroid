@@ -5,7 +5,7 @@
 
 > It Was Built To Compile TDLib Easily And Without The Worries Of Addiction.
 
-
+## [PreCompile Releases](https://github.com/bsglinux16/tddroid/releases)
 
 #### Working Platforms
 - x86
