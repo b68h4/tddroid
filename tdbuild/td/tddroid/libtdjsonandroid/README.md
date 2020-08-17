@@ -9,6 +9,7 @@ ABI LIST:
   - arm64-v8a
 
 ANDROID_SDK_ROOT=../../../ndk-bundle 
+
 ../../../ndk-bundle If you want to use another bundle you can change the path
 
 
