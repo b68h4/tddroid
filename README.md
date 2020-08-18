@@ -20,7 +20,7 @@
 
 **[Build Folder](tdbuild/td/tddroid/libtdjsonandroid)**
 
-## Changes (v1.6.0)
+## Changes (v1.6.7)
 - egramtel / tdsharp Linux Bindings Edited and Adapt LibTdJsonAndroid (tdbuild)
   - Interop.cs Fixed
 - Ndk-Bundle r21 Included in Project (Easy Compile)
