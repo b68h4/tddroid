@@ -13,20 +13,21 @@
 - arm
   - armeabi-v7a
   - arm64-v8a
-  
+
 #### Working Languages
  - I think it works in all languages :))
  - Excluding Java (Not Working Java Use JNI and Java Build Files [Comment](https://github.com/tdlib/td/issues/77#issuecomment-640719893))
 
 **[Build Folder](tdbuild/td/tddroid/libtdjsonandroid)**
 
-## Changes (v1.6.7)
+## Changes (v1.6.7 / 2)
 - egramtel / tdsharp Linux Bindings Edited and Adapt LibTdJsonAndroid (tdbuild)
   - Interop.cs Fixed
 - Ndk-Bundle r21 Included in Project (Easy Compile)
   - Android Sdk Root Added to build-all.sh File
 - OpenSsl-1.1.1g Builds Collected and Added
 - Build.sh Build-All.sh Created Successfully Running
+- **SSL_ABI Added Fixed SSL Paths and NDK Paths**
 ## Used Projects
 > [egramtel/tdsharp - Official TDLib .NET Library](https://github.com/egramtel/tdsharp)
 
@@ -38,8 +39,9 @@
 ## Usage
 
 - Enter the tdbuild/td/tddroid/libtdjsonandroid Folder
-  - Run **ANDROID_SDK_ROOT=../../../ndk-bundle ABI="the platform you want to use" ./build.sh**
-
+  - Run **ANDROID_SDK_ROOT=../../../ndk-bundle ABI="the platform you want to use" SSL_ABI="ABI's equivalent to SSL_ABI" ./build.sh**
+  - **ABI's equivalent to SSL_ABI Available Here --> [Readme 2](https://github.com/bsglinux16/tddroid/blob/master/tdbuild/td/tddroid/libtdjsonandroid/README.md)**
+  
 - When the build is finished go to the build- "platform-ABI" folder
   - Include the libtdjsonandroid.so File in Your .NET Project
 
