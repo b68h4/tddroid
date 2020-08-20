@@ -7,9 +7,12 @@ ABI LIST --> SSL_ABI LIST:
 - arm  
   - armeabi-v7a --> arm
   - arm64-v8a --> arm64
+
 Example:
+
 If ABI=arm64-v8a Then 
 SSL_ABI=arm64
+
 If ABI=armeabi-v7a Then
 SSL_ABI=arm
 
