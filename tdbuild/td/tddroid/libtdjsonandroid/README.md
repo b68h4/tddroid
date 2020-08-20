@@ -2,11 +2,11 @@ Build Command
 ANDROID_SDK_ROOT=../../../ndk-bundle **SSL_ABI=arm** ABI=armeabi-v7a ./build.sh
 
 ABI LIST --> SSL_ABI LIST:
-- x86 --> x86
-- x86_64 --> x86_64
+- x86 -->   SSL_ABI=x86
+- x86_64 --> SSL_ABI=x86_64
 - arm  
-  - armeabi-v7a --> arm
-  - arm64-v8a --> arm64
+  - armeabi-v7a --> SSL_ABI=arm
+  - arm64-v8a -->  SSL_ABI=arm64
 
 Example:
 
