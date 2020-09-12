@@ -44,7 +44,7 @@
   
   <s>- Run **ANDROID_SDK_ROOT=../../../ndk-bundle ABI="the platform you want to use" SSL_ABI="ABI's equivalent to SSL_ABI" ./build.sh** </s>
   
-  - **If You Don't Run the export.sh File Build.sh or Build-All.sh by itself won't work**
+  - **If You Don't Run the export.sh File , Build.sh or Build-All.sh by itself won't work**
   - **ABI's equivalent to SSL_ABI Available Here --> [Readme 2](https://github.com/bsglinux16/tddroid/blob/master/tdbuild/td/tddroid/libtdjsonandroid/README.md)**
   
 - When the build is finished go to the build- "platform-ABI" folder
