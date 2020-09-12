@@ -21,14 +21,15 @@
 
 **[Build Folder](tdbuild/td/tddroid/libtdjsonandroid)**
 
-## Changes (v1.6.7 / 2)
+## Changes (v1.6.8)
 - egramtel / tdsharp Linux Bindings Edited and Adapt LibTdJsonAndroid (tdbuild)
   - Interop.cs Fixed
 - Ndk-Bundle r21 Included in Project (Easy Compile)
   - Android Sdk Root Added to build-all.sh File
 - OpenSsl-1.1.1g Builds Collected and Added
 - Build.sh Build-All.sh Created Successfully Running
-- **SSL_ABI Added Fixed SSL Paths and NDK Paths**
+- SSL_ABI Added Fixed SSL Paths and NDK Paths
+- **export.sh Build Issue Fixed Please Run export.sh for Build.**
 ## Used Projects
 > [egramtel/tdsharp - Official TDLib .NET Library](https://github.com/egramtel/tdsharp)
 
