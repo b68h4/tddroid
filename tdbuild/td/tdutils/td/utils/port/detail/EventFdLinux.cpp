@@ -67,7 +67,7 @@ void EventFdLinux::release() {
   auto native_fd = impl_->info.native_fd().fd();
 
   auto result = [&]() -> Result<size_t> {
-    auto write_res = detail::skip_eintr([&] { return ::write(native_fd, slice.begin(), slice.size()); });
+    auto write_res = detail::skip_eintr([&] { return write(native_fd, slice.begin(), slice.size()); });
     auto write_errno = errno;
     if (write_res >= 0) {
       return narrow_cast<size_t>(write_res);
@@ -117,10 +117,14 @@ void EventFdLinux::acquire() {
 }
 
 void EventFdLinux::wait(int timeout_ms) {
-  pollfd fd;
-  fd.fd = get_poll_info().native_fd().fd();
-  fd.events = POLLIN;
-  poll(&fd, 1, timeout_ms);
+  detail::skip_eintr_timeout(
+      [this](int timeout_ms) {
+        pollfd fd;
+        fd.fd = get_poll_info().native_fd().fd();
+        fd.events = POLLIN;
+        return poll(&fd, 1, timeout_ms);
+      },
+      timeout_ms);
 }
 
 }  // namespace detail

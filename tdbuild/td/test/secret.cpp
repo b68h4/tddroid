@@ -177,15 +177,17 @@ class messages_sendEncryptedService final {
 
 class messages_sendEncrypted final {
  public:
+  int32 flags_;
   tl_object_ptr<inputEncryptedChat> peer_;
   int64 random_id_{};
   BufferSlice data_;
 
   messages_sendEncrypted() = default;
-  static const int32 ID = -1451792525;
+  static const int32 ID = 1157265941;
 
   explicit messages_sendEncrypted(TlBufferParser &p)
-      : peer_(TlFetchBoxed<TlFetchObject<inputEncryptedChat>, -247351839>::parse(p))
+      : flags_(TlFetchInt::parse(p))
+      , peer_(TlFetchBoxed<TlFetchObject<inputEncryptedChat>, -247351839>::parse(p))
       , random_id_(TlFetchLong::parse(p))
       , data_(TlFetchBytes<BufferSlice>::parse(p)) {
   }
@@ -587,7 +589,7 @@ class Master : public Actor {
 
     void add_inbound_message(int32 chat_id, BufferSlice data, uint64 crc) {
       CHECK(crc64(data.as_slice()) == crc);
-      auto event = make_unique<logevent::InboundSecretMessage>();
+      auto event = make_unique<log_event::InboundSecretMessage>();
       event->chat_id = chat_id;
       event->date = 0;
       event->encrypted_message = std::move(data);
@@ -666,21 +668,21 @@ class Master : public Actor {
 
       for (auto &event : events) {
         CHECK(event.type_ == LogEvent::HandlerType::SecretChats);
-        auto r_message = logevent::SecretChatEvent::from_buffer_slice(event.data_as_buffer_slice());
+        auto r_message = log_event::SecretChatEvent::from_buffer_slice(event.data_as_buffer_slice());
         LOG_IF(FATAL, r_message.is_error()) << "Failed to deserialize event: " << r_message.error();
         auto message = r_message.move_as_ok();
-        message->set_logevent_id(event.id_);
+        message->set_log_event_id(event.id_);
         LOG(INFO) << "Process binlog event " << *message;
         switch (message->get_type()) {
-          case logevent::SecretChatEvent::Type::InboundSecretMessage:
+          case log_event::SecretChatEvent::Type::InboundSecretMessage:
             send_closure_later(actor_, &SecretChatActor::replay_inbound_message,
-                               unique_ptr<logevent::InboundSecretMessage>(
-                                   static_cast<logevent::InboundSecretMessage *>(message.release())));
+                               unique_ptr<log_event::InboundSecretMessage>(
+                                   static_cast<log_event::InboundSecretMessage *>(message.release())));
             break;
-          case logevent::SecretChatEvent::Type::OutboundSecretMessage:
+          case log_event::SecretChatEvent::Type::OutboundSecretMessage:
             send_closure_later(actor_, &SecretChatActor::replay_outbound_message,
-                               unique_ptr<logevent::OutboundSecretMessage>(
-                                   static_cast<logevent::OutboundSecretMessage *>(message.release())));
+                               unique_ptr<log_event::OutboundSecretMessage>(
+                                   static_cast<log_event::OutboundSecretMessage *>(message.release())));
             break;
           default:
             UNREACHABLE();
@@ -784,7 +786,7 @@ class Master : public Actor {
     return false;
   }
   void send_net_query(NetQueryPtr query, ActorShared<NetQueryCallback> callback, bool ordered) {
-    if (can_fail(query) && Random::fast(0, 1) == 0) {
+    if (can_fail(query) && Random::fast_bool()) {
       LOG(INFO) << "Fail query " << query;
       auto resend_promise =
           PromiseCreator::lambda([id = actor_shared(this, get_link_token()), callback_actor = callback.get(),
@@ -881,8 +883,8 @@ class Master : public Actor {
     LOG(INFO) << "Send message: " << tag("id", id) << tag("text", text) << tag("random_id", random_id);
     sent_messages_[random_id] = Message{id, text};
     send_closure(get_by_id(id), &SecretChatProxy::send_message,
-                 secret_api::make_object<secret_api::decryptedMessage>(0, random_id, 0, text, Auto(), Auto(), Auto(),
-                                                                       Auto(), 0));
+                 secret_api::make_object<secret_api::decryptedMessage>(0, false /*ignored*/, random_id, 0, text, Auto(),
+                                                                       Auto(), Auto(), Auto(), 0));
   }
   void process_net_query(my_api::messages_sendEncryptedService &&message, NetQueryPtr net_query,
                          ActorShared<NetQueryCallback> callback) {

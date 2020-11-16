@@ -4,10 +4,11 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-#include "td/utils/tests.h"
-
-#include "td/actor/actor.h"
-#include "td/actor/PromiseFuture.h"
+#include "td/telegram/ConfigManager.h"
+#include "td/telegram/net/DcId.h"
+#include "td/telegram/net/PublicRsaKeyShared.h"
+#include "td/telegram/net/Session.h"
+#include "td/telegram/NotificationManager.h"
 
 #include "td/mtproto/AuthData.h"
 #include "td/mtproto/DhHandshake.h"
@@ -25,11 +26,8 @@
 #include "td/net/Socks5.h"
 #include "td/net/TransparentProxy.h"
 
-#include "td/telegram/ConfigManager.h"
-#include "td/telegram/net/DcId.h"
-#include "td/telegram/net/PublicRsaKeyShared.h"
-#include "td/telegram/net/Session.h"
-#include "td/telegram/NotificationManager.h"
+#include "td/actor/actor.h"
+#include "td/actor/PromiseFuture.h"
 
 #include "td/utils/base64.h"
 #include "td/utils/common.h"
@@ -39,6 +37,7 @@
 #include "td/utils/port/SocketFd.h"
 #include "td/utils/Random.h"
 #include "td/utils/Status.h"
+#include "td/utils/tests.h"
 #include "td/utils/Time.h"
 
 REGISTER_TESTS(mtproto);
@@ -460,7 +459,7 @@ class Socks5TestActor : public Actor {
       return promise.set_error(Status::Error(PSTRING() << "Failed to open socket: " << r_socket.error()));
     }
     create_actor<Socks5>("socks5", r_socket.move_as_ok(), mtproto_ip_address, "", "",
-                         make_unique<Callback>(std::move(promise)), actor_shared())
+                         make_unique<Callback>(std::move(promise)), actor_shared(this))
         .release();
   }
 

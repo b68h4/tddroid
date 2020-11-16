@@ -48,6 +48,7 @@ void CallManager::update_call_signaling_data(int64 call_id, string data) {
   auto info_it = call_info_.find(call_id);
   if (info_it == call_info_.end() || !info_it->second.call_id.is_valid()) {
     LOG(INFO) << "Ignore signaling data for " << call_id;
+    return;
   }
 
   auto actor = get_call_actor(info_it->second.call_id);
@@ -68,6 +69,22 @@ void CallManager::create_call(UserId user_id, tl_object_ptr<telegram_api::InputU
                std::move(promise));
 }
 
+void CallManager::accept_call(CallId call_id, CallProtocol &&protocol, Promise<> promise) {
+  auto actor = get_call_actor(call_id);
+  if (actor.empty()) {
+    return promise.set_error(Status::Error(400, "Call not found"));
+  }
+  send_closure(actor, &CallActor::accept_call, std::move(protocol), std::move(promise));
+}
+
+void CallManager::send_call_signaling_data(CallId call_id, string &&data, Promise<> promise) {
+  auto actor = get_call_actor(call_id);
+  if (actor.empty()) {
+    return promise.set_error(Status::Error(400, "Call not found"));
+  }
+  send_closure(actor, &CallActor::send_call_signaling_data, std::move(data), std::move(promise));
+}
+
 void CallManager::discard_call(CallId call_id, bool is_disconnected, int32 duration, bool is_video, int64 connection_id,
                                Promise<> promise) {
   auto actor = get_call_actor(call_id);
@@ -75,14 +92,6 @@ void CallManager::discard_call(CallId call_id, bool is_disconnected, int32 durat
     return promise.set_error(Status::Error(400, "Call not found"));
   }
   send_closure(actor, &CallActor::discard_call, is_disconnected, duration, is_video, connection_id, std::move(promise));
-}
-
-void CallManager::accept_call(CallId call_id, CallProtocol &&protocol, Promise<> promise) {
-  auto actor = get_call_actor(call_id);
-  if (actor.empty()) {
-    return promise.set_error(Status::Error(400, "Call not found"));
-  }
-  send_closure(actor, &CallActor::accept_call, std::move(protocol), std::move(promise));
 }
 
 void CallManager::rate_call(CallId call_id, int32 rating, string comment,

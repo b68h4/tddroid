@@ -315,8 +315,13 @@ bool ServerSocketFd::empty() const {
 }
 
 Result<ServerSocketFd> ServerSocketFd::open(int32 port, CSlice addr) {
-  IPAddress address;
-  TRY_STATUS(address.init_ipv4_port(addr, port));
+  if (port <= 0 || port >= (1 << 16)) {
+    return Status::Error(PSLICE() << "Invalid server port " << port << " specified");
+  }
+
+  TRY_RESULT(address, IPAddress::get_ip_address(addr));
+  address.set_port(port);
+
   NativeFd fd{socket(address.get_address_family(), SOCK_STREAM, 0)};
   if (!fd) {
     return OS_SOCKET_ERROR("Failed to create a socket");
@@ -332,7 +337,11 @@ Result<ServerSocketFd> ServerSocketFd::open(int32 port, CSlice addr) {
   setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, reinterpret_cast<const char *>(&flags), sizeof(flags));
 #endif
 #elif TD_PORT_WINDOWS
-  BOOL flags = TRUE;
+  BOOL flags = FALSE;
+  if (address.is_ipv6()) {
+    setsockopt(sock, IPPROTO_IPV6, IPV6_V6ONLY, reinterpret_cast<const char *>(&flags), sizeof(flags));
+  }
+  flags = TRUE;
 #endif
   setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char *>(&flags), sizeof(flags));
   setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, reinterpret_cast<const char *>(&flags), sizeof(flags));

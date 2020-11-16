@@ -227,7 +227,7 @@ void NetQueryDispatcher::update_session_count() {
 }
 void NetQueryDispatcher::destroy_auth_keys(Promise<> promise) {
   std::lock_guard<std::mutex> guard(main_dc_id_mutex_);
-  LOG(INFO) << "Destory auth keys";
+  LOG(INFO) << "Destroy auth keys";
   need_destroy_auth_key_ = true;
   for (size_t i = 1; i < MAX_DC_COUNT; i++) {
     if (is_dc_inited(narrow_cast<int32>(i)) && dcs_[i - 1].id_.is_internal()) {
@@ -271,7 +271,7 @@ bool NetQueryDispatcher::is_dc_inited(int32 raw_dc_id) {
   return dcs_[raw_dc_id - 1].is_valid_.load(std::memory_order_relaxed);
 }
 int32 NetQueryDispatcher::get_session_count() {
-  return max(G()->shared_config().get_option_integer("session_count"), 1);
+  return max(narrow_cast<int32>(G()->shared_config().get_option_integer("session_count")), 1);
 }
 
 bool NetQueryDispatcher::get_use_pfs() {

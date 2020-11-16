@@ -269,7 +269,11 @@ T trim(T str) {
   return T(begin, end);
 }
 
-string lpad0(string str, size_t size);
+string lpad(string str, size_t size, char c);
+
+string lpad0(const string str, size_t size);
+
+string rpad(string str, size_t size, char c);
 
 string oneline(Slice str);
 
@@ -379,6 +383,10 @@ Result<string> hex_decode(Slice hex);
 string hex_encode(Slice data);
 
 string url_encode(Slice data);
+
+size_t url_decode(Slice from, MutableSlice to, bool decode_plus_sign_as_space);
+
+MutableSlice url_decode_inplace(MutableSlice str, bool decode_plus_sign_as_space);
 
 // run-time checked narrowing cast (type conversion):
 

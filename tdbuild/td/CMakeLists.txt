@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.0.2 FATAL_ERROR)
 
-project(TDLib VERSION 1.6.7 LANGUAGES CXX C)
+project(TDLib VERSION 1.6.10 LANGUAGES CXX C)
+
+if (NOT DEFINED CMAKE_MODULE_PATH)
+  set(CMAKE_MODULE_PATH "")
+endif()
+set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake" "${CMAKE_MODULE_PATH}")
 
 if (NOT DEFINED CMAKE_INSTALL_LIBDIR)
   set(CMAKE_INSTALL_LIBDIR "lib")
@@ -16,21 +21,13 @@ if (POLICY CMP0054)
   # do not expand quoted arguments
   cmake_policy(SET CMP0054 NEW)
 endif()
-
-# Prevent in-source build
-get_filename_component(TD_REAL_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" REALPATH)
-get_filename_component(TD_REAL_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}" REALPATH)
-
-if (TD_REAL_BINARY_DIR STREQUAL TD_REAL_SOURCE_DIR)
-  message("  Out-of-source build should be used to build TDLib.")
-  message("  You need to remove the files already created by CMake and")
-  message("  rerun CMake from a new directory:")
-  message("  rm -rf CMakeFiles CMakeCache.txt")
-  message("  mkdir build")
-  message("  cd build")
-  message("  cmake ..")
-  message(FATAL_ERROR "In-source build failed.")
+if (POLICY CMP0060)
+  # link libraries by full path
+  cmake_policy(SET CMP0060 NEW)
 endif()
+
+include(PreventInSourceBuild)
+prevent_in_source_build()
 
 option(TD_ENABLE_JNI "Use \"ON\" to enable JNI-compatible TDLib API.")
 option(TD_ENABLE_DOTNET "Use \"ON\" to enable generation of C++/CLI or C++/CX TDLib API bindings.")
@@ -38,15 +35,6 @@ option(TD_ENABLE_DOTNET "Use \"ON\" to enable generation of C++/CLI or C++/CX TD
 if (TD_ENABLE_DOTNET AND (CMAKE_VERSION VERSION_LESS "3.1.0"))
   message(FATAL_ERROR "CMake 3.1.0 or higher is required. You are running version ${CMAKE_VERSION}.")
 endif()
-
-if (NOT DEFINED CMAKE_MODULE_PATH)
-  set(CMAKE_MODULE_PATH "")
-endif()
-set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake" "${CMAKE_MODULE_PATH}")
-
-set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
-
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 enable_testing()
 
@@ -97,8 +85,10 @@ if (EMSCRIPTEN)
   set(ZLIB_LIBRARIES)
   set(ZLIB_INCLUDE_DIR)
 
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s ALLOW_MEMORY_GROWTH=1 -s MEMFS_APPEND_TO_TYPED_ARRAYS=1 -s USE_ZLIB=1 -s MODULARIZE=1 -s WEBSOCKET_URL=\"'wss:#'\" -s EXTRA_EXPORTED_RUNTIME_METHODS=\"['FS','cwrap']\" -lidbfs.js -lworkerfs.js")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s ALLOW_MEMORY_GROWTH=1 -s MEMFS_APPEND_TO_TYPED_ARRAYS=1 -s USE_ZLIB=1 -s MODULARIZE=1 -s WEBSOCKET_URL=\"'wss:#'\" -s EXTRA_EXPORTED_RUNTIME_METHODS=\"['FS','cwrap']\" -lidbfs.js -lworkerfs.js")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s ALLOW_MEMORY_GROWTH=1 -s MEMFS_APPEND_TO_TYPED_ARRAYS=1 -s USE_ZLIB=1 -s MODULARIZE=1 \
+    -s EXPORT_NAME=\"'createTdwebModule'\" -s WEBSOCKET_URL=\"'wss:#'\" -s EXTRA_EXPORTED_RUNTIME_METHODS=\"['FS','cwrap']\" -lidbfs.js -lworkerfs.js")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s ALLOW_MEMORY_GROWTH=1 -s MEMFS_APPEND_TO_TYPED_ARRAYS=1 -s USE_ZLIB=1 -s MODULARIZE=1 \
+    -s EXPORT_NAME=\"'createTdwebModule'\" -s WEBSOCKET_URL=\"'wss:#'\" -s EXTRA_EXPORTED_RUNTIME_METHODS=\"['FS','cwrap']\" -lidbfs.js -lworkerfs.js")
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -s DEMANGLE_SUPPORT=1 -s ASSERTIONS=1")
   set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -s DEMANGLE_SUPPORT=1 -s ASSERTIONS=1")
 
@@ -111,6 +101,7 @@ if (EMSCRIPTEN)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s WASM=1")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -s WASM=1")
   endif()
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --post-js ${CMAKE_CURRENT_SOURCE_DIR}/post.js")
 endif()
 
 if (NOT OPENSSL_FOUND)
@@ -118,38 +109,6 @@ if (NOT OPENSSL_FOUND)
 endif()
 if (OPENSSL_FOUND)
   message(STATUS "Found OpenSSL: ${OPENSSL_INCLUDE_DIR} ${OPENSSL_LIBRARIES}")
-endif()
-
-if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  set(GCC 1)
-elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  set(CLANG 1)
-elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
-  set(INTEL 1)
-elseif (NOT MSVC)
-  message(FATAL_ERROR "Compiler isn't supported")
-endif()
-
-include(CheckCXXCompilerFlag)
-
-if (GCC OR CLANG OR INTEL)
-  if (WIN32 AND INTEL)
-    set(STD14_FLAG /Qstd=c++14)
-  else()
-    set(STD14_FLAG -std=c++14)
-  endif()
-  check_cxx_compiler_flag(${STD14_FLAG} HAVE_STD14)
-  if (NOT HAVE_STD14)
-    string(REPLACE "c++14" "c++1y" STD14_FLAG "${STD14_FLAG}")
-    check_cxx_compiler_flag(${STD14_FLAG} HAVE_STD1Y)
-    set(HAVE_STD14 ${HAVE_STD1Y})
-  endif()
-elseif (MSVC)
-  set(HAVE_STD14 MSVC_VERSION>=1900)
-endif()
-
-if (NOT HAVE_STD14)
-  message(FATAL_ERROR "No C++14 support in the compiler. Please upgrade the compiler.")
 endif()
 
 set(CMAKE_THREAD_PREFER_PTHREAD ON)
@@ -160,23 +119,20 @@ if (THREADS_HAVE_PTHREAD_ARG)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
 endif()
 
-if (MSVC)
-  if (CMAKE_CXX_FLAGS_DEBUG MATCHES "/RTC1")
-    string(REPLACE "/RTC1" " " CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
-  endif()
-  add_definitions(-D_SCL_SECURE_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /utf-8 /GR- /W4 /wd4100 /wd4127 /wd4324 /wd4505 /wd4814 /wd4702")
-elseif (CLANG OR GCC)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${STD14_FLAG} -fno-omit-frame-pointer -fno-exceptions -fno-rtti")
-  if (APPLE)
-    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-dead_strip,-x,-S")
-  else()
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffunction-sections -fdata-sections")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffunction-sections -fdata-sections")
-    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--gc-sections -Wl,--exclude-libs,ALL")
-  endif()
+include(TdSetUpCompiler)
+td_set_up_compiler()
 
+if (MSVC)
+  option(TD_ENABLE_MULTI_PROCESSOR_COMPILATION "Use \"ON\" to enable multi-processor compilation.")
+
+  if (TD_ENABLE_MULTI_PROCESSOR_COMPILATION)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
+  endif()
+endif()
+
+if (CLANG OR GCC)
   if (MEMPROF)
+    include(CheckCXXCompilerFlag)
     check_cxx_compiler_flag(-no-pie CXX_NO_PIE_FLAG)
     if (CXX_NO_PIE_FLAG)
       set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -no-pie")
@@ -184,76 +140,7 @@ elseif (CLANG OR GCC)
       set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-no_pie")
     endif()
   endif()
-elseif (INTEL)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${STD14_FLAG}")
 endif()
-
-if (WIN32)
-  add_definitions(-DNTDDI_VERSION=0x06020000 -DWINVER=0x0602 -D_WIN32_WINNT=0x0602 -DPSAPI_VERSION=1 -DNOMINMAX -DUNICODE -D_UNICODE -DWIN32_LEAN_AND_MEAN)
-endif()
-if (CYGWIN)
-  add_definitions(-D_DEFAULT_SOURCE=1 -DFD_SETSIZE=4096)
-endif()
-
-if (NOT ANDROID) # _FILE_OFFSET_BITS is broken in NDK r15, r15b and r17 and doesn't work prior to Android 7.0
-  add_definitions(-D_FILE_OFFSET_BITS=64)
-endif()
-
-include(AddCXXCompilerFlag)
-if (NOT MSVC)
-  add_cxx_compiler_flag("-Wall")
-  add_cxx_compiler_flag("-Wextra")
-  add_cxx_compiler_flag("-Wimplicit-fallthrough=2")
-  add_cxx_compiler_flag("-Wpointer-arith")
-  add_cxx_compiler_flag("-Wcast-qual")
-  add_cxx_compiler_flag("-Wsign-compare")
-  add_cxx_compiler_flag("-Wduplicated-branches")
-  add_cxx_compiler_flag("-Wduplicated-cond")
-  add_cxx_compiler_flag("-Walloc-zero")
-  add_cxx_compiler_flag("-Wlogical-op")
-  add_cxx_compiler_flag("-Wno-tautological-compare")
-  add_cxx_compiler_flag("-Wpointer-arith")
-  add_cxx_compiler_flag("-Wvla")
-  add_cxx_compiler_flag("-Wnon-virtual-dtor")
-  add_cxx_compiler_flag("-Wno-unused-parameter")
-  add_cxx_compiler_flag("-Wconversion")
-  add_cxx_compiler_flag("-Wno-sign-conversion")
-  add_cxx_compiler_flag("-Wc++14-compat-pedantic")
-  add_cxx_compiler_flag("-Wdeprecated")
-  add_cxx_compiler_flag("-Qunused-arguments")
-  add_cxx_compiler_flag("-Wodr")
-  add_cxx_compiler_flag("-flto-odr-type-merging")
-
-#  add_cxx_compiler_flag("-Werror")
-
-#  add_cxx_compiler_flag("-Wcast-align")
-
-#std::int32_t <-> int and off_t <-> std::size_t/std::int64_t
-#  add_cxx_compiler_flag("-Wuseless-cast")
-
-#external headers like openssl
-#  add_cxx_compiler_flag("-Wzero-as-null-pointer-constant")
-endif()
-
-if (GCC AND NOT (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 7.0))
-  add_cxx_compiler_flag("-Wno-maybe-uninitialized")  # too much false positives
-endif()
-if (GCC AND NOT (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9.0))
-  # warns about a lot of "return std::move", which are not redundant for compilers without fix for DR 1579, i.e. GCC 4.9 or clang 3.8
-  # see http://www.open-std.org/jtc1/sc22/wg21/docs/cwg_defects.html#1579
-  add_cxx_compiler_flag("-Wno-redundant-move")
-endif()
-if (CLANG AND (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 3.5))
-  # https://stackoverflow.com/questions/26744556/warning-returning-a-captured-reference-from-a-lambda
-  add_cxx_compiler_flag("-Wno-return-stack-address")
-endif()
-
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -isystem /usr/include/c++/v1")
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread")
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=undefined")
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=leak")
 
 add_subdirectory(tdtl)
 
@@ -394,10 +281,12 @@ set(TDLIB_SOURCE
   td/telegram/ConfigShared.cpp
   td/telegram/Contact.cpp
   td/telegram/ContactsManager.cpp
+  td/telegram/CountryInfoManager.cpp
   td/telegram/DelayDispatcher.cpp
   td/telegram/Dependencies.cpp
   td/telegram/DeviceTokenManager.cpp
   td/telegram/DhCache.cpp
+  td/telegram/DialogAction.cpp
   td/telegram/DialogAdministrator.cpp
   td/telegram/DialogDb.cpp
   td/telegram/DialogFilter.cpp
@@ -437,12 +326,15 @@ set(TDLIB_SOURCE
   td/telegram/JsonValue.cpp
   td/telegram/LanguagePackManager.cpp
   td/telegram/Location.cpp
+  td/telegram/logevent/LogEventHelper.cpp
   td/telegram/Logging.cpp
   td/telegram/MessageContent.cpp
   td/telegram/MessageContentType.cpp
   td/telegram/MessageEntity.cpp
   td/telegram/MessageId.cpp
+  td/telegram/MessageReplyInfo.cpp
   td/telegram/MessagesDb.cpp
+  td/telegram/MessageSearchFilter.cpp
   td/telegram/MessagesManager.cpp
   td/telegram/misc.cpp
   td/telegram/net/AuthDataShared.cpp
@@ -548,11 +440,13 @@ set(TDLIB_SOURCE
   td/telegram/ConfigShared.h
   td/telegram/Contact.h
   td/telegram/ContactsManager.h
+  td/telegram/CountryInfoManager.h
   td/telegram/DelayDispatcher.h
   td/telegram/Dependencies.h
   td/telegram/DeviceTokenManager.h
   td/telegram/DhCache.h
   td/telegram/DhConfig.h
+  td/telegram/DialogAction.h
   td/telegram/DialogAdministrator.h
   td/telegram/DialogDate.h
   td/telegram/DialogDb.h
@@ -610,9 +504,12 @@ set(TDLIB_SOURCE
   td/telegram/Logging.h
   td/telegram/MessageContent.h
   td/telegram/MessageContentType.h
+  td/telegram/MessageCopyOptions.h
   td/telegram/MessageEntity.h
   td/telegram/MessageId.h
+  td/telegram/MessageReplyInfo.h
   td/telegram/MessagesDb.h
+  td/telegram/MessageSearchFilter.h
   td/telegram/MessagesManager.h
   td/telegram/misc.h
   td/telegram/net/AuthDataShared.h
@@ -795,9 +692,9 @@ target_include_directories(tdcore SYSTEM PRIVATE ${OPENSSL_INCLUDE_DIR})
 target_link_libraries(tdcore PUBLIC tdapi tdactor tdutils tdnet tddb PRIVATE ${OPENSSL_CRYPTO_LIBRARY} ${CMAKE_DL_LIBS} ${ZLIB_LIBRARIES})
 if (WIN32)
   if (MINGW)
-    target_link_libraries(tdcore PRIVATE ws2_32 mswsock)
+    target_link_libraries(tdcore PRIVATE ws2_32 mswsock crypt32)
   else()
-    target_link_libraries(tdcore PRIVATE ws2_32 Mswsock)
+    target_link_libraries(tdcore PRIVATE ws2_32 Mswsock Crypt32)
   endif()
 endif()
 
@@ -823,7 +720,6 @@ if (TD_ENABLE_DOTNET)
     td/telegram/LogDotNet.cpp
     ${TL_DOTNET_SCHEME_SOURCE}
   )
-  set(VCPKG_APPLOCAL_LIBRARY_DEPS ON)
   set_target_properties(tddotnet PROPERTIES OUTPUT_NAME Telegram.Td)
   target_link_libraries(tddotnet PRIVATE tdclient tdutils)
   target_include_directories(tddotnet PUBLIC
@@ -887,26 +783,6 @@ target_include_directories(tdjson_static PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>)
 
-set(BIGOBJ)
-if (WIN32 OR CYGWIN)
-  if (MSVC)
-    set(BIGOBJ "/bigobj")
-  elseif (GCC)
-    set(BIGOBJ "-Wa,-mbig-obj")
-  endif()
-endif()
-if (BIGOBJ)
-  target_compile_options(tdapi PUBLIC ${BIGOBJ})
-  target_compile_options(tdc PUBLIC ${BIGOBJ})
-  target_compile_options(tdcore PUBLIC ${BIGOBJ})
-  target_compile_options(tdclient PUBLIC ${BIGOBJ})
-  target_compile_options(tdjson PUBLIC ${BIGOBJ})
-  target_compile_options(tdjson_static PUBLIC ${BIGOBJ})
-  if (TD_ENABLE_DOTNET)
-    target_compile_options(tddotnet PUBLIC "/bigobj")
-  endif()
-endif()
-
 if (EMSCRIPTEN)
   set(TD_EMSCRIPTEN_SRC td/telegram/td_emscripten.cpp)
   add_executable(${TD_EMSCRIPTEN} ${TD_EMSCRIPTEN_SRC})
@@ -968,6 +844,28 @@ install(TARGETS tdjson TdJson tdjson_static TdJsonStatic tdjson_private tdclient
   INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
 
+# generate pkg-config files
+include(GeneratePkgConfig)
+
+generate_pkgconfig(tdutils "Telegram Library - Utils")
+generate_pkgconfig(tdactor "Telegram Library - Actor")
+generate_pkgconfig(tdnet "Telegram Library - Net")
+generate_pkgconfig(tdsqlite "Telegram Library - SQLite")
+generate_pkgconfig(tddb "Telegram Library - Database")
+if (MEMPROF)
+  # generate_pkgconfig(memprof "memprof - simple library for memory usage profiling")
+endif()
+generate_pkgconfig(tdcore "Telegram Library - Core")
+generate_pkgconfig(tdclient "Telegram Library - C++ Interface")
+if (TD_ENABLE_DOTNET)
+  # generate_pkgconfig(tddotnet "Telegram Library - C# Interface")
+endif()
+# generate_pkgconfig(tdc "Telegram Library - C interface")
+generate_pkgconfig(tdapi "Telegram Library - API")
+generate_pkgconfig(tdjson_private "Telegram Library - JSON interface (private)")
+generate_pkgconfig(tdjson "Telegram Library - JSON interface (shared)")
+generate_pkgconfig(tdjson_static "Telegram Library - JSON interface (static)")
+
 install(EXPORT TdTargets
   FILE TdTargets.cmake
   NAMESPACE Td::
@@ -983,6 +881,9 @@ install(FILES td/tl/TlObject.h DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/td/tl")
 install(FILES "${TL_TD_AUTO_INCLUDE_DIR}/td/telegram/td_api.h" "${TL_TD_AUTO_INCLUDE_DIR}/td/telegram/td_api.hpp" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/td/telegram")
 if (TD_ENABLE_JNI)
   install(FILES td/tl/tl_jni_object.h DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/td/tl")
+endif()
+if (MSVC AND VCPKG_TOOLCHAIN)
+  install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/" DESTINATION "${CMAKE_INSTALL_BINDIR}" FILES_MATCHING PATTERN "*.dll")
 endif()
 
 include(CMakePackageConfigHelpers)

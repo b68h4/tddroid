@@ -9,6 +9,8 @@
 #include "td/utils/common.h"
 #include "td/utils/StringBuilder.h"
 
+#include <functional>
+
 namespace td {
 
 enum class MessageContentType : int32 {
@@ -54,17 +56,26 @@ enum class MessageContentType : int32 {
   PassportDataSent,
   PassportDataReceived,
   Poll,
-  Dice
+  Dice,
+  ProximityAlertTriggered
 };
 
 StringBuilder &operator<<(StringBuilder &string_builder, MessageContentType content_type);
 
 bool is_allowed_media_group_content(MessageContentType content_type);
 
+bool is_homogenous_media_group_content(MessageContentType content_type);
+
 bool is_secret_message_content(int32 ttl, MessageContentType content_type);
 
 bool is_service_message_content(MessageContentType content_type);
 
 bool can_have_message_content_caption(MessageContentType content_type);
+
+struct MessageContentTypeHash {
+  std::size_t operator()(MessageContentType content_type) const {
+    return std::hash<int32>()(static_cast<int32>(content_type));
+  }
+};
 
 }  // namespace td

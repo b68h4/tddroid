@@ -11,7 +11,6 @@
 #include "td/utils/format.h"
 #include "td/utils/logging.h"
 #include "td/utils/port/thread.h"
-#include "td/utils/Random.h"
 #include "td/utils/Slice.h"
 #include "td/utils/Status.h"
 
@@ -96,7 +95,7 @@ class TestsRunner : public TestContext {
  public:
   static TestsRunner &get_default();
 
-  void add_test(string name, unique_ptr<Test> test);
+  void add_test(string name, std::function<unique_ptr<Test>()> test);
   void add_substr_filter(string str);
   void set_stress_flag(bool flag);
   void run_all();
@@ -113,7 +112,11 @@ class TestsRunner : public TestContext {
   };
   bool stress_flag_{false};
   vector<string> substr_filters_;
-  vector<std::pair<string, unique_ptr<Test>>> tests_;
+  struct TestInfo {
+    std::function<unique_ptr<Test>()> creator;
+    unique_ptr<Test> test;
+  };
+  vector<std::pair<string, TestInfo>> tests_;
   State state_;
   unique_ptr<RegressionTester> regression_tester_;
 
@@ -125,7 +128,7 @@ template <class T>
 class RegisterTest {
  public:
   explicit RegisterTest(string name, TestsRunner &runner = TestsRunner::get_default()) {
-    runner.add_test(name, make_unique<T>());
+    runner.add_test(name, [] { return make_unique<T>(); });
   }
 };
 
@@ -142,29 +145,9 @@ class Stage {
   std::atomic<uint64> value_{0};
 };
 
-inline string rand_string(int from, int to, size_t len) {
-  string res(len, '\0');
-  for (auto &c : res) {
-    c = static_cast<char>(Random::fast(from, to));
-  }
-  return res;
-}
+string rand_string(int from, int to, size_t len);
 
-inline vector<string> rand_split(Slice str) {
-  vector<string> res;
-  size_t pos = 0;
-  while (pos < str.size()) {
-    size_t len;
-    if (Random::fast(0, 1) == 1) {
-      len = Random::fast(1, 10);
-    } else {
-      len = Random::fast(100, 200);
-    }
-    res.push_back(str.substr(pos, len).str());
-    pos += len;
-  }
-  return res;
-}
+vector<string> rand_split(Slice str);
 
 template <class T1, class T2>
 void assert_eq_impl(const T1 &expected, const T2 &got, const char *file, int line) {

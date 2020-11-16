@@ -87,6 +87,7 @@ set(TDUTILS_SOURCE
   td/utils/BufferedUdp.cpp
   td/utils/check.cpp
   td/utils/crypto.cpp
+  td/utils/ExitGuard.cpp
   td/utils/FileLog.cpp
   td/utils/filesystem.cpp
   td/utils/find_boundary.cpp
@@ -187,6 +188,7 @@ set(TDUTILS_SOURCE
   td/utils/Destructor.h
   td/utils/Enumerator.h
   td/utils/EpochBasedMemoryReclamation.h
+  td/utils/ExitGuard.h
   td/utils/FileLog.h
   td/utils/filesystem.h
   td/utils/find_boundary.h
@@ -270,6 +272,7 @@ if (TDUTILS_MIME_TYPE)
 endif()
 
 set(TDUTILS_TEST_SOURCE
+  ${CMAKE_CURRENT_SOURCE_DIR}/test/bitmask.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/test/buffer.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/test/ConcurrentHashMap.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/test/crypto.cpp
@@ -313,6 +316,14 @@ target_include_directories(tdutils PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOUR
 if (OPENSSL_FOUND)
   target_link_libraries(tdutils PRIVATE ${OPENSSL_CRYPTO_LIBRARY} ${CMAKE_DL_LIBS} ${ZLIB_LIBRARIES})
   target_include_directories(tdutils SYSTEM PRIVATE ${OPENSSL_INCLUDE_DIR})
+
+  if (WIN32)
+    if (MINGW)
+      target_link_libraries(tdutils PRIVATE ws2_32 mswsock crypt32)
+    else()
+      target_link_libraries(tdutils PRIVATE ws2_32 Mswsock Crypt32)
+    endif()
+  endif()
 endif()
 
 if (ZLIB_FOUND)
@@ -336,6 +347,9 @@ if (WIN32)
     target_link_libraries(tdutils PRIVATE ws2_32 mswsock normaliz psapi)
   else()
     target_link_libraries(tdutils PRIVATE ws2_32 Mswsock Normaliz psapi)
+  endif()
+  if (NOT CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
+    target_link_libraries(tdutils PRIVATE shell32)
   endif()
 endif()
 

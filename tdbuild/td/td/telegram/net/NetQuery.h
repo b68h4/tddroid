@@ -31,6 +31,8 @@
 
 namespace td {
 
+extern int VERBOSITY_NAME(net_query);
+
 class NetQuery;
 using NetQueryPtr = ObjectPool<NetQuery>::OwnerPtr;
 using NetQueryRef = ObjectPool<NetQuery>::WeakPtr;
@@ -266,6 +268,13 @@ class NetQuery : public TsListNode<NetQueryDebug> {
     finish_migrate(cancel_slot_);
   }
 
+  int8 priority() const {
+    return priority_;
+  }
+  void set_priority(int8 priority) {
+    priority_ = priority;
+  }
+
  private:
   State state_ = State::Empty;
   Type type_ = Type::Common;
@@ -284,6 +293,7 @@ class NetQuery : public TsListNode<NetQueryDebug> {
   uint32 session_rand_ = 0;
 
   bool may_be_lost_ = false;
+  int8 priority_{0};
 
   template <class T>
   struct movable_atomic : public std::atomic<T> {
@@ -344,8 +354,9 @@ class NetQuery : public TsListNode<NetQueryDebug> {
       , answer_(std::move(answer))
       , tl_constructor_(tl_constructor)
       , total_timeout_limit_(total_timeout_limit) {
-    get_data_unsafe().my_id_ = get_my_id();
-    get_data_unsafe().start_timestamp_ = Time::now();
+    auto &data = get_data_unsafe();
+    data.my_id_ = get_my_id();
+    data.start_timestamp_ = data.state_timestamp_ = Time::now();
     LOG(INFO) << *this;
     if (stats) {
       nq_counter_ = stats->register_query(this);

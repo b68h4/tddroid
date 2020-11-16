@@ -17,7 +17,6 @@
 #include "td/telegram/net/NetQueryDispatcher.h"
 #include "td/telegram/SequenceDispatcher.h"
 #include "td/telegram/StateManager.h"
-#include "td/telegram/Td.h"
 #include "td/telegram/TdDb.h"
 
 #include "td/telegram/secret_api.h"
@@ -34,7 +33,6 @@
 #include "td/utils/common.h"
 #include "td/utils/format.h"
 #include "td/utils/logging.h"
-#include "td/utils/misc.h"
 #include "td/utils/Random.h"
 #include "td/utils/Status.h"
 #include "td/utils/Time.h"
@@ -116,7 +114,7 @@ void SecretChatsManager::cancel_chat(SecretChatId secret_chat_id, Promise<> prom
 
 void SecretChatsManager::send_message(SecretChatId secret_chat_id, tl_object_ptr<secret_api::decryptedMessage> message,
                                       tl_object_ptr<telegram_api::InputEncryptedFile> file, Promise<> promise) {
-  // message->message_ = Random::fast(0, 1) ? string(1, static_cast<char>(0x80)) : "a";
+  // message->message_ = Random::fast_bool() ? string(1, static_cast<char>(0x80)) : "a";
   auto actor = get_chat_actor(secret_chat_id.get());
   auto safe_promise = SafePromise<>(std::move(promise), Status::Error(400, "Can't find secret chat"));
   send_closure(actor, &SecretChatActor::send_message, std::move(message), std::move(file), std::move(safe_promise));
@@ -190,7 +188,7 @@ void SecretChatsManager::on_new_message(tl_object_ptr<telegram_api::EncryptedMes
   }
   CHECK(message_ptr != nullptr);
 
-  auto event = make_unique<logevent::InboundSecretMessage>();
+  auto event = make_unique<log_event::InboundSecretMessage>();
   event->promise = std::move(promise);
   downcast_call(*message_ptr, [&](auto &x) {
     event->chat_id = x.chat_id_;
@@ -219,26 +217,26 @@ void SecretChatsManager::replay_binlog_event(BinlogEvent &&binlog_event) {
     binlog_erase(G()->td_db()->get_binlog(), binlog_event.id_);
     return;
   }
-  auto r_message = logevent::SecretChatEvent::from_buffer_slice(binlog_event.data_as_buffer_slice());
+  auto r_message = log_event::SecretChatEvent::from_buffer_slice(binlog_event.data_as_buffer_slice());
   LOG_IF(FATAL, r_message.is_error()) << "Failed to deserialize event: " << r_message.error();
   auto message = r_message.move_as_ok();
-  message->set_logevent_id(binlog_event.id_);
+  message->set_log_event_id(binlog_event.id_);
   LOG(INFO) << "Process binlog event " << *message;
   switch (message->get_type()) {
-    case logevent::SecretChatEvent::Type::InboundSecretMessage:
-      return replay_inbound_message(
-          unique_ptr<logevent::InboundSecretMessage>(static_cast<logevent::InboundSecretMessage *>(message.release())));
-    case logevent::SecretChatEvent::Type::OutboundSecretMessage:
-      return replay_outbound_message(unique_ptr<logevent::OutboundSecretMessage>(
-          static_cast<logevent::OutboundSecretMessage *>(message.release())));
-    case logevent::SecretChatEvent::Type::CloseSecretChat:
+    case log_event::SecretChatEvent::Type::InboundSecretMessage:
+      return replay_inbound_message(unique_ptr<log_event::InboundSecretMessage>(
+          static_cast<log_event::InboundSecretMessage *>(message.release())));
+    case log_event::SecretChatEvent::Type::OutboundSecretMessage:
+      return replay_outbound_message(unique_ptr<log_event::OutboundSecretMessage>(
+          static_cast<log_event::OutboundSecretMessage *>(message.release())));
+    case log_event::SecretChatEvent::Type::CloseSecretChat:
       return replay_close_chat(
-          unique_ptr<logevent::CloseSecretChat>(static_cast<logevent::CloseSecretChat *>(message.release())));
-    case logevent::SecretChatEvent::Type::CreateSecretChat:
+          unique_ptr<log_event::CloseSecretChat>(static_cast<log_event::CloseSecretChat *>(message.release())));
+    case log_event::SecretChatEvent::Type::CreateSecretChat:
       return replay_create_chat(
-          unique_ptr<logevent::CreateSecretChat>(static_cast<logevent::CreateSecretChat *>(message.release())));
+          unique_ptr<log_event::CreateSecretChat>(static_cast<log_event::CreateSecretChat *>(message.release())));
   }
-  LOG(FATAL) << "Unknown logevent type " << tag("type", format::as_hex(static_cast<int32>(message->get_type())));
+  LOG(FATAL) << "Unknown log event type " << tag("type", format::as_hex(static_cast<int32>(message->get_type())));
 }
 
 void SecretChatsManager::binlog_replay_finish() {
@@ -248,34 +246,34 @@ void SecretChatsManager::binlog_replay_finish() {
   }
 }
 
-void SecretChatsManager::replay_inbound_message(unique_ptr<logevent::InboundSecretMessage> message) {
+void SecretChatsManager::replay_inbound_message(unique_ptr<log_event::InboundSecretMessage> message) {
   LOG(INFO) << "Replay inbound secret message in chat " << message->chat_id;
   auto actor = get_chat_actor(message->chat_id);
   send_closure_later(actor, &SecretChatActor::replay_inbound_message, std::move(message));
 }
 
-void SecretChatsManager::add_inbound_message(unique_ptr<logevent::InboundSecretMessage> message) {
+void SecretChatsManager::add_inbound_message(unique_ptr<log_event::InboundSecretMessage> message) {
   LOG(INFO) << "Process inbound secret message in chat " << message->chat_id;
 
   auto actor = get_chat_actor(message->chat_id);
   send_closure(actor, &SecretChatActor::add_inbound_message, std::move(message));
 }
 
-void SecretChatsManager::replay_close_chat(unique_ptr<logevent::CloseSecretChat> message) {
+void SecretChatsManager::replay_close_chat(unique_ptr<log_event::CloseSecretChat> message) {
   LOG(INFO) << "Replay close secret chat " << message->chat_id;
 
   auto actor = get_chat_actor(message->chat_id);
   send_closure_later(actor, &SecretChatActor::replay_close_chat, std::move(message));
 }
 
-void SecretChatsManager::replay_create_chat(unique_ptr<logevent::CreateSecretChat> message) {
+void SecretChatsManager::replay_create_chat(unique_ptr<log_event::CreateSecretChat> message) {
   LOG(INFO) << "Replay create secret chat " << message->random_id;
 
   auto actor = create_chat_actor(message->random_id);
   send_closure_later(actor, &SecretChatActor::replay_create_chat, std::move(message));
 }
 
-void SecretChatsManager::replay_outbound_message(unique_ptr<logevent::OutboundSecretMessage> message) {
+void SecretChatsManager::replay_outbound_message(unique_ptr<log_event::OutboundSecretMessage> message) {
   LOG(INFO) << "Replay outbound secret message in chat " << message->chat_id;
 
   auto actor = get_chat_actor(message->chat_id);

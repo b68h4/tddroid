@@ -25,6 +25,7 @@
 #include "td/utils/Status.h"
 #include "td/utils/Time.h"
 
+#include <limits>
 #include <map>
 
 namespace td {
@@ -113,7 +114,7 @@ class ConfigManager : public NetQueryCallback {
   int ref_cnt_{1};
   Timestamp expire_time_;
 
-  FloodControlStrict lazy_request_flood_countrol_;
+  FloodControlStrict lazy_request_flood_control_;
 
   vector<Promise<td_api::object_ptr<td_api::JsonValue>>> get_app_config_queries_;
 
@@ -130,6 +131,8 @@ class ConfigManager : public NetQueryCallback {
   vector<SuggestedAction> suggested_actions_;
   size_t dismiss_suggested_action_request_count_ = 0;
   std::map<SuggestedAction, vector<Promise<Unit>>> dismiss_suggested_action_queries_;
+
+  static constexpr uint64 REFCNT_TOKEN = std::numeric_limits<uint64>::max() - 2;
 
   void start_up() override;
   void hangup_shared() override;
@@ -157,6 +160,8 @@ class ConfigManager : public NetQueryCallback {
   static void save_config_expire(Timestamp timestamp);
   static void save_dc_options_update(DcOptions dc_options);
   static DcOptions load_dc_options_update();
+
+  ActorShared<> create_reference();
 };
 
 }  // namespace td

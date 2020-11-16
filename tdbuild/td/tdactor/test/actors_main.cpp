@@ -261,7 +261,7 @@ class MainQueryActor final : public Actor {
   void wakeup() override {
     int cnt = 100000;
     while (out_cnt_ < in_cnt_ + 100 && out_cnt_ < cnt) {
-      if (Random::fast(0, 1)) {
+      if (Random::fast_bool()) {
         send_closure(rand_elem(actors_), &QueryActor::query, create_query());
       } else {
         send_closure_later(rand_elem(actors_), &QueryActor::query, create_query());
@@ -306,7 +306,7 @@ class SimpleActor final : public Actor {
       return;
     }
     q_++;
-    p_ = Random::fast(0, 1) ? 1 : 10000;
+    p_ = Random::fast_bool() ? 1 : 10000;
     auto future = Random::fast(0, 3) == 0 ? send_promise<ActorSendType::Immediate>(worker_, &Worker::query, q_, p_)
                                           : send_promise<ActorSendType::Later>(worker_, &Worker::query, q_, p_);
     if (future.is_ready()) {
@@ -353,7 +353,7 @@ class SendToDead : public Actor {
       set_timeout_in(Random::fast_uint32() % 3 * 0.001);
       if (ttl_ != 0) {
         child_ = create_actor_on_scheduler<Parent>(
-            "Child", Random::fast_uint32() % Scheduler::instance()->sched_count(), actor_shared(), ttl_ - 1);
+            "Child", Random::fast_uint32() % Scheduler::instance()->sched_count(), actor_shared(this), ttl_ - 1);
       }
     }
     void timeout_expired() override {
@@ -376,7 +376,7 @@ class SendToDead : public Actor {
 
   ActorShared<> create_reference() {
     ref_cnt_++;
-    return actor_shared();
+    return actor_shared(this);
   }
   void hangup_shared() override {
     ref_cnt_--;

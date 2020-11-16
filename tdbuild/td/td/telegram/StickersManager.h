@@ -53,7 +53,7 @@ class StickersManager : public Actor {
 
   tl_object_ptr<td_api::stickers> get_stickers_object(const vector<FileId> &sticker_ids) const;
 
-  tl_object_ptr<td_api::sticker> get_dice_sticker_object(const string &emoji, int32 value) const;
+  tl_object_ptr<td_api::DiceStickers> get_dice_stickers_object(const string &emoji, int32 value) const;
 
   int32 get_dice_success_animation_frame_number(const string &emoji, int32 value) const;
 
@@ -344,6 +344,7 @@ class StickersManager : public Actor {
     bool is_masks = false;
     bool is_viewed = true;
     bool is_thumbnail_reloaded = false;
+    bool are_legacy_thumbnails_reloaded = false;
     mutable bool was_update_sent = false;  // does the sticker set is known to the client
     bool is_changed = true;                // have new changes that need to be sent to the client and database
     bool need_save_to_database = true;     // have new changes that need only to be saved to the database

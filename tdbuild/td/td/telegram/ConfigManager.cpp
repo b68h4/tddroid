@@ -515,7 +515,6 @@ ActorOwn<> get_full_config(DcOption option, Promise<FullConfig> promise, ActorSh
     }
     void on_result(NetQueryPtr query) override {
       promise_.set_result(fetch_result<telegram_api::help_getConfig>(std::move(query)));
-      stop();
     }
     void hangup_shared() override {
       if (get_link_token() == 1) {
@@ -876,12 +875,11 @@ class ConfigRecoverer : public Actor {
 };
 
 ConfigManager::ConfigManager(ActorShared<> parent) : parent_(std::move(parent)) {
-  lazy_request_flood_countrol_.add_limit(20, 1);
+  lazy_request_flood_control_.add_limit(20, 1);
 }
 
 void ConfigManager::start_up() {
-  ref_cnt_++;
-  config_recoverer_ = create_actor<ConfigRecoverer>("Recoverer", actor_shared());
+  config_recoverer_ = create_actor<ConfigRecoverer>("Recoverer", create_reference());
   send_closure(config_recoverer_, &ConfigRecoverer::on_dc_options_update, load_dc_options_update());
 
   auto expire_time = load_config_expire_time();
@@ -893,7 +891,13 @@ void ConfigManager::start_up() {
   }
 }
 
+ActorShared<> ConfigManager::create_reference() {
+  ref_cnt_++;
+  return actor_shared(this, REFCNT_TOKEN);
+}
+
 void ConfigManager::hangup_shared() {
+  LOG_CHECK(get_link_token() == REFCNT_TOKEN) << "Expected REFCNT_TOKEN, got " << get_link_token();
   ref_cnt_--;
   try_stop();
 }
@@ -926,7 +930,7 @@ void ConfigManager::request_config() {
     return;
   }
 
-  lazy_request_flood_countrol_.add_event(static_cast<int32>(Timestamp::now().at()));
+  lazy_request_flood_control_.add_event(static_cast<int32>(Timestamp::now().at()));
   request_config_from_dc_impl(DcId::main());
 }
 
@@ -939,7 +943,7 @@ void ConfigManager::lazy_request_config() {
     return;
   }
 
-  expire_time_.relax(Timestamp::at(lazy_request_flood_countrol_.get_wakeup_at()));
+  expire_time_.relax(Timestamp::at(lazy_request_flood_control_.get_wakeup_at()));
   set_timeout_at(expire_time_.at());
 }
 
@@ -1051,7 +1055,7 @@ void ConfigManager::request_config_from_dc_impl(DcId dc_id) {
   config_sent_cnt_++;
   auto query = G()->net_query_creator().create_unauth(telegram_api::help_getConfig(), dc_id);
   query->total_timeout_limit_ = 60 * 60 * 24;
-  G()->net_query_dispatcher().dispatch_with_callback(std::move(query), actor_shared(this, 0));
+  G()->net_query_dispatcher().dispatch_with_callback(std::move(query), actor_shared(this, 8));
 }
 
 void ConfigManager::do_set_ignore_sensitive_content_restrictions(bool ignore_sensitive_content_restrictions) {
@@ -1272,7 +1276,7 @@ void ConfigManager::on_result(NetQueryPtr res) {
     return;
   }
 
-  CHECK(token == 0);
+  CHECK(token == 8);
   CHECK(config_sent_cnt_ > 0);
   config_sent_cnt_--;
   auto r_config = fetch_result<telegram_api::help_getConfig>(std::move(res));

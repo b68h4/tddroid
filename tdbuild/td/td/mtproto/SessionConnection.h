@@ -12,6 +12,7 @@
 
 #include "td/utils/buffer.h"
 #include "td/utils/format.h"
+#include "td/utils/logging.h"
 #include "td/utils/Named.h"
 #include "td/utils/port/detail/PollableFd.h"
 #include "td/utils/ScopeGuard.h"
@@ -25,6 +26,9 @@
 #include <utility>
 
 namespace td {
+
+extern int VERBOSITY_NAME(mtproto);
+
 namespace mtproto_api {
 
 class rpc_error;

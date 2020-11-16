@@ -11,7 +11,6 @@
 #include "td/utils/Slice.h"
 #include "td/utils/StringBuilder.h"
 
-#include <set>
 #include <tuple>
 #include <utility>
 
@@ -174,7 +173,7 @@ inline StringBuilder &operator<<(StringBuilder &logger, Time t) {
   while (i + 1 < durations_n && t.seconds_ > 10 * durations[i + 1].value) {
     i++;
   }
-  logger << StringBuilder::FixedDouble(t.seconds_ / durations[i].value, 1) << durations[i].name;
+  logger << StringBuilder::FixedDouble(t.seconds_ / durations[i].value, 1) << Slice(durations[i].name);
   return logger;
 }
 
@@ -200,7 +199,7 @@ inline StringBuilder &operator<<(StringBuilder &logger, Size t) {
   while (i + 1 < sizes_n && t.size_ > 10 * sizes[i + 1].value) {
     i++;
   }
-  logger << t.size_ / sizes[i].value << sizes[i].name;
+  logger << t.size_ / sizes[i].value << Slice(sizes[i].name);
   return logger;
 }
 
@@ -333,10 +332,6 @@ StringBuilder &operator<<(StringBuilder &sb, const std::pair<A, B> &p) {
 
 template <class T>
 StringBuilder &operator<<(StringBuilder &stream, const vector<T> &vec) {
-  return stream << format::as_array(vec);
-}
-template <class T>
-StringBuilder &operator<<(StringBuilder &stream, const std::set<T> &vec) {
   return stream << format::as_array(vec);
 }
 

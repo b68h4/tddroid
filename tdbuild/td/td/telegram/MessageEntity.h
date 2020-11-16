@@ -28,6 +28,7 @@ class ContactsManager;
 
 class MessageEntity {
  public:
+  // don't forget to update get_type_priority()
   enum class Type : int32 {
     Mention,
     Hashtag,
@@ -46,7 +47,8 @@ class MessageEntity {
     Underline,
     Strikethrough,
     BlockQuote,
-    BankCardNumber
+    BankCardNumber,
+    Size
   };
   Type type;
   int32 offset;

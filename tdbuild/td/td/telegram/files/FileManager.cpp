@@ -943,11 +943,11 @@ Status FileManager::check_local_location(FullLocalFileLocation &location, int64 
     size = stat.size_;
   }
   if (location.mtime_nsec_ == 0) {
-    VLOG(files) << "Set file \"" << location.path_ << "\" modification time to " << stat.mtime_nsec_;
+    VLOG(file_loader) << "Set file \"" << location.path_ << "\" modification time to " << stat.mtime_nsec_;
     location.mtime_nsec_ = stat.mtime_nsec_;
   } else if (!are_modification_times_equal(location.mtime_nsec_, stat.mtime_nsec_)) {
-    VLOG(files) << "File \"" << location.path_ << "\" was modified: old mtime = " << location.mtime_nsec_
-                << ", new mtime = " << stat.mtime_nsec_;
+    VLOG(file_loader) << "File \"" << location.path_ << "\" was modified: old mtime = " << location.mtime_nsec_
+                      << ", new mtime = " << stat.mtime_nsec_;
     return Status::Error(PSLICE() << "File \"" << location.path_ << "\" was modified");
   }
   if (skip_file_size_checks) {
@@ -1160,7 +1160,7 @@ Result<FileId> FileManager::register_file(FileData &&data, FileLocationSource fi
 
     auto status = check_local_location(data.local_.full(), data.size_, skip_file_size_checks);
     if (status.is_error()) {
-      LOG(WARNING) << "Invalid " << data.local_.full() << ": " << status << " from " << source;
+      LOG(INFO) << "Invalid " << data.local_.full() << ": " << status << " from " << source;
       data.local_ = LocalFileLocation();
       if (data.remote_.type() == RemoteFileLocation::Type::Partial) {
         data.remote_ = {};
@@ -1661,7 +1661,7 @@ Result<FileId> FileManager::merge(FileId x_file_id, FileId y_file_id, bool no_sy
   file_nodes_[node_ids[other_node_i]] = nullptr;
 
   run_generate(node);
-  run_download(node);
+  run_download(node, false);
   run_upload(node, {});
 
   if (other_pmc_id.is_valid()) {
@@ -2182,12 +2182,12 @@ void FileManager::download(FileId file_id, std::shared_ptr<DownloadCallback> cal
   // TODO: send current progress?
 
   run_generate(node);
-  run_download(node);
+  run_download(node, true);
 
   try_flush_node(node, "download");
 }
 
-void FileManager::run_download(FileNodePtr node) {
+void FileManager::run_download(FileNodePtr node, bool force_update_priority) {
   int8 priority = 0;
   for (auto id : node->file_ids_) {
     auto *info = get_file_id_info(id);
@@ -2230,14 +2230,20 @@ void FileManager::run_download(FileNodePtr node) {
   if (old_priority != 0) {
     LOG(INFO) << "Update download offset and limits of file " << node->main_file_id_;
     CHECK(node->download_id_ != 0);
-    send_closure(file_load_manager_, &FileLoadManager::update_priority, node->download_id_, priority);
-    if (need_update_limit) {
-      auto download_limit = node->download_limit_;
-      send_closure(file_load_manager_, &FileLoadManager::update_download_limit, node->download_id_, download_limit);
+    if (force_update_priority || priority != old_priority) {
+      send_closure(file_load_manager_, &FileLoadManager::update_priority, node->download_id_, priority);
     }
-    if (need_update_offset) {
-      auto download_offset = file_view.is_encrypted_any() ? 0 : node->download_offset_;
-      send_closure(file_load_manager_, &FileLoadManager::update_download_offset, node->download_id_, download_offset);
+    if (need_update_limit || need_update_offset) {
+      auto download_offset = node->download_offset_;
+      auto download_limit = node->download_limit_;
+      if (file_view.is_encrypted_any()) {
+        CHECK(download_offset <= MAX_FILE_SIZE);
+        CHECK(download_limit <= std::numeric_limits<int32>::max());
+        download_limit += download_offset;
+        download_offset = 0;
+      }
+      send_closure(file_load_manager_, &FileLoadManager::update_downloaded_part, node->download_id_, download_offset,
+                   download_limit);
     }
     return;
   }
@@ -2297,8 +2303,14 @@ void FileManager::run_download(FileNodePtr node) {
   LOG(INFO) << "Run download of file " << file_id << " of size " << node->size_ << " from "
             << node->remote_.full.value() << " with suggested name " << node->suggested_name() << " and encyption key "
             << node->encryption_key_;
-  auto download_offset = file_view.is_encrypted_any() ? 0 : node->download_offset_;
+  auto download_offset = node->download_offset_;
   auto download_limit = node->download_limit_;
+  if (file_view.is_encrypted_any()) {
+    CHECK(download_offset <= MAX_FILE_SIZE);
+    CHECK(download_limit <= std::numeric_limits<int32>::max());
+    download_limit += download_offset;
+    download_offset = 0;
+  }
   send_closure(file_load_manager_, &FileLoadManager::download, id, node->remote_.full.value(), node->local_,
                node->size_, node->suggested_name(), node->encryption_key_, node->can_search_locally_, download_offset,
                download_limit, priority);
@@ -2330,19 +2342,25 @@ class FileManager::ForceUploadActor : public Actor {
     explicit UploadCallback(ActorId<ForceUploadActor> callback) : callback_(std::move(callback)) {
     }
     void on_upload_ok(FileId file_id, tl_object_ptr<telegram_api::InputFile> input_file) override {
-      send_closure(callback_, &ForceUploadActor::on_upload_ok, std::move(input_file));
+      send_closure(std::move(callback_), &ForceUploadActor::on_upload_ok, std::move(input_file));
     }
 
     void on_upload_encrypted_ok(FileId file_id, tl_object_ptr<telegram_api::InputEncryptedFile> input_file) override {
-      send_closure(callback_, &ForceUploadActor::on_upload_encrypted_ok, std::move(input_file));
+      send_closure(std::move(callback_), &ForceUploadActor::on_upload_encrypted_ok, std::move(input_file));
     }
 
     void on_upload_secure_ok(FileId file_id, tl_object_ptr<telegram_api::InputSecureFile> input_file) override {
-      send_closure(callback_, &ForceUploadActor::on_upload_secure_ok, std::move(input_file));
+      send_closure(std::move(callback_), &ForceUploadActor::on_upload_secure_ok, std::move(input_file));
     }
 
     void on_upload_error(FileId file_id, Status error) override {
-      send_closure(callback_, &ForceUploadActor::on_upload_error, std::move(error));
+      send_closure(std::move(callback_), &ForceUploadActor::on_upload_error, std::move(error));
+    }
+    ~UploadCallback() {
+      if (callback_.empty()) {
+        return;
+      }
+      send_closure(std::move(callback_), &ForceUploadActor::on_upload_error, Status::Error("Cancelled"));
     }
 
    private:
@@ -2407,6 +2425,9 @@ class FileManager::ForceUploadActor : public Actor {
   void loop() override {
     if (is_active_) {
       return;
+    }
+    if (G()->close_flag()) {
+      return stop();
     }
 
     is_active_ = true;
@@ -2852,7 +2873,7 @@ Result<FileId> FileManager::from_persistent_id_v23(Slice binary, FileType file_t
   }
   auto decoded_binary = zero_decode(binary);
   FullRemoteFileLocation remote_location;
-  logevent::WithVersion<TlParser> parser(decoded_binary);
+  log_event::WithVersion<TlParser> parser(decoded_binary);
   parser.set_version(version);
   parse(remote_location, parser);
   parser.fetch_end();
@@ -3058,7 +3079,7 @@ Result<FileId> FileManager::get_input_file_id(FileType type, const tl_object_ptr
           return FileId();
         }
         string hash;
-        if (false && new_type == FileType::Photo) {
+        if (G()->shared_config().get_option_boolean("reuse_uploaded_photos_by_hash") && new_type == FileType::Photo) {
           auto r_stat = stat(path);
           if (r_stat.is_ok() && r_stat.ok().size_ > 0 && r_stat.ok().size_ < 5000000) {
             auto r_file_content = read_file_str(path, r_stat.ok().size_);
@@ -3607,7 +3628,7 @@ void FileManager::on_error_impl(FileNodePtr node, Query::Type type, bool was_act
   if ((status.message() == "FILE_ID_INVALID" || status.message() == "LOCATION_INVALID") &&
       FileView(node).may_reload_photo()) {
     node->need_reload_photo_ = true;
-    run_download(node);
+    run_download(node, true);
     return;
   }
 
@@ -3627,7 +3648,7 @@ void FileManager::on_error_impl(FileNodePtr node, Query::Type type, bool was_act
     }
     CHECK(!node->file_ids_.empty());
     delete_file_reference(node->file_ids_.back(), file_reference);
-    run_download(node);
+    run_download(node, true);
     return;
   }
 
@@ -3641,16 +3662,16 @@ void FileManager::on_error_impl(FileNodePtr node, Query::Type type, bool was_act
   if (begins_with(status.message(), "FILE_DOWNLOAD_RESTART")) {
     if (ends_with(status.message(), "WITH_FILE_REFERENCE")) {
       node->download_was_update_file_reference_ = true;
-      run_download(node);
+      run_download(node, true);
       return;
     } else if (ends_with(status.message(), "INCREASE_PART_SIZE")) {
       if (try_fix_partial_local_location(node)) {
-        run_download(node);
+        run_download(node, true);
         return;
       }
     } else {
       node->can_search_locally_ = false;
-      run_download(node);
+      run_download(node, true);
       return;
     }
   }

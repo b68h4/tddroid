@@ -8,7 +8,6 @@
 
 #include "td/telegram/AnimationsManager.h"
 #include "td/telegram/AudiosManager.h"
-#include "td/telegram/ContactsManager.h"
 #include "td/telegram/DocumentsManager.h"
 #include "td/telegram/Global.h"
 #include "td/telegram/MessagesManager.h"
@@ -156,7 +155,8 @@ class NotificationTypePushMessage : public NotificationType {
       return td_api::make_object<td_api::pushMessageContentHidden>(is_pinned);
     }
     if (key == "MESSAGES") {
-      return td_api::make_object<td_api::pushMessageContentMediaAlbum>(to_integer<int32>(arg), true, true);
+      return td_api::make_object<td_api::pushMessageContentMediaAlbum>(to_integer<int32>(arg), true, true, false,
+                                                                       false);
     }
     CHECK(key.size() > 8);
     switch (key[8]) {
@@ -170,6 +170,10 @@ class NotificationTypePushMessage : public NotificationType {
           auto audios_manager = G()->td().get_actor_unsafe()->audios_manager_.get();
           return td_api::make_object<td_api::pushMessageContentAudio>(
               audios_manager->get_audio_object(document.file_id), is_pinned);
+        }
+        if (key == "MESSAGE_AUDIOS") {
+          return td_api::make_object<td_api::pushMessageContentMediaAlbum>(to_integer<int32>(arg), false, false, true,
+                                                                           false);
         }
         break;
       case 'B':
@@ -218,6 +222,10 @@ class NotificationTypePushMessage : public NotificationType {
           return td_api::make_object<td_api::pushMessageContentDocument>(
               documents_manager->get_document_object(document.file_id, PhotoFormat::Jpeg), is_pinned);
         }
+        if (key == "MESSAGE_DOCUMENTS") {
+          return td_api::make_object<td_api::pushMessageContentMediaAlbum>(to_integer<int32>(arg), false, false, false,
+                                                                           true);
+        }
         break;
       case 'F':
         if (key == "MESSAGE_FORWARDS") {
@@ -259,7 +267,8 @@ class NotificationTypePushMessage : public NotificationType {
                                                                       is_pinned);
         }
         if (key == "MESSAGE_PHOTOS") {
-          return td_api::make_object<td_api::pushMessageContentMediaAlbum>(to_integer<int32>(arg), true, false);
+          return td_api::make_object<td_api::pushMessageContentMediaAlbum>(to_integer<int32>(arg), true, false, false,
+                                                                           false);
         }
         if (key == "MESSAGE_POLL") {
           return td_api::make_object<td_api::pushMessageContentPoll>(arg, true, is_pinned);
@@ -303,7 +312,8 @@ class NotificationTypePushMessage : public NotificationType {
               video_notes_manager->get_video_note_object(document.file_id), is_pinned);
         }
         if (key == "MESSAGE_VIDEOS") {
-          return td_api::make_object<td_api::pushMessageContentMediaAlbum>(to_integer<int32>(arg), false, true);
+          return td_api::make_object<td_api::pushMessageContentMediaAlbum>(to_integer<int32>(arg), false, true, false,
+                                                                           false);
         }
         if (key == "MESSAGE_VOICE_NOTE") {
           auto voice_notes_manager = G()->td().get_actor_unsafe()->voice_notes_manager_.get();
@@ -318,19 +328,21 @@ class NotificationTypePushMessage : public NotificationType {
   }
 
   td_api::object_ptr<td_api::NotificationType> get_notification_type_object(DialogId dialog_id) const override {
-    auto sender_user_id = G()->td().get_actor_unsafe()->contacts_manager_->get_user_id_object(
-        sender_user_id_, "get_notification_type_object");
+    auto sender =
+        G()->td().get_actor_unsafe()->messages_manager_->get_message_sender_object(sender_user_id_, sender_dialog_id_);
     return td_api::make_object<td_api::notificationTypeNewPushMessage>(
-        message_id_.get(), sender_user_id, sender_name_, is_outgoing_,
+        message_id_.get(), std::move(sender), sender_name_, is_outgoing_,
         get_push_message_content_object(key_, arg_, photo_, document_));
   }
 
   StringBuilder &to_string_builder(StringBuilder &string_builder) const override {
-    return string_builder << "NewPushMessageNotification[" << sender_user_id_ << "/\"" << sender_name_ << "\", "
-                          << message_id_ << ", " << key_ << ", " << arg_ << ", " << photo_ << ", " << document_ << ']';
+    return string_builder << "NewPushMessageNotification[" << sender_user_id_ << "/" << sender_dialog_id_ << "/\""
+                          << sender_name_ << "\", " << message_id_ << ", " << key_ << ", " << arg_ << ", " << photo_
+                          << ", " << document_ << ']';
   }
 
   UserId sender_user_id_;
+  DialogId sender_dialog_id_;
   MessageId message_id_;
   string sender_name_;
   string key_;
@@ -340,9 +352,10 @@ class NotificationTypePushMessage : public NotificationType {
   bool is_outgoing_;
 
  public:
-  NotificationTypePushMessage(UserId sender_user_id, string sender_name, bool is_outgoing, MessageId message_id,
-                              string key, string arg, Photo photo, Document document)
-      : sender_user_id_(std::move(sender_user_id))
+  NotificationTypePushMessage(UserId sender_user_id, DialogId sender_dialog_id, string sender_name, bool is_outgoing,
+                              MessageId message_id, string key, string arg, Photo photo, Document document)
+      : sender_user_id_(sender_user_id)
+      , sender_dialog_id_(sender_dialog_id)
       , message_id_(message_id)
       , sender_name_(std::move(sender_name))
       , key_(std::move(key))
@@ -365,12 +378,13 @@ unique_ptr<NotificationType> create_new_call_notification(CallId call_id) {
   return make_unique<NotificationTypeCall>(call_id);
 }
 
-unique_ptr<NotificationType> create_new_push_message_notification(UserId sender_user_id, string sender_name,
-                                                                  bool is_outgoing, MessageId message_id, string key,
-                                                                  string arg, Photo photo, Document document) {
-  return td::make_unique<NotificationTypePushMessage>(sender_user_id, std::move(sender_name), is_outgoing, message_id,
-                                                      std::move(key), std::move(arg), std::move(photo),
-                                                      std::move(document));
+unique_ptr<NotificationType> create_new_push_message_notification(UserId sender_user_id, DialogId sender_dialog_id,
+                                                                  string sender_name, bool is_outgoing,
+                                                                  MessageId message_id, string key, string arg,
+                                                                  Photo photo, Document document) {
+  return td::make_unique<NotificationTypePushMessage>(sender_user_id, sender_dialog_id, std::move(sender_name),
+                                                      is_outgoing, message_id, std::move(key), std::move(arg),
+                                                      std::move(photo), std::move(document));
 }
 
 }  // namespace td

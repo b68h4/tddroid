@@ -109,16 +109,6 @@ constexpr int VERBOSITY_NAME(DEBUG) = 4;
 constexpr int VERBOSITY_NAME(NEVER) = 1024;
 
 namespace td {
-// TODO Not part of utils. Should be in some separate file
-extern int VERBOSITY_NAME(mtproto);
-extern int VERBOSITY_NAME(raw_mtproto);
-extern int VERBOSITY_NAME(dc);
-extern int VERBOSITY_NAME(fd);
-extern int VERBOSITY_NAME(net_query);
-extern int VERBOSITY_NAME(td_requests);
-extern int VERBOSITY_NAME(actor);
-extern int VERBOSITY_NAME(files);
-extern int VERBOSITY_NAME(sqlite);
 
 struct LogOptions {
   std::atomic<int> level{VERBOSITY_NAME(DEBUG) + 1};
@@ -251,7 +241,7 @@ class Logger {
   Logger(LogInterface &log, const LogOptions &options, int log_level, Slice file_name, int line_num, Slice comment);
 
   template <class T>
-  Logger &operator<<(const T &other) {
+  Logger &operator<<(T &&other) {
     sb_ << other;
     return *this;
   }
@@ -331,14 +321,8 @@ class TsLog : public LogInterface {
  private:
   LogInterface *log_ = nullptr;
   std::atomic_flag lock_ = ATOMIC_FLAG_INIT;
-  void enter_critical() {
-    while (lock_.test_and_set(std::memory_order_acquire)) {
-      // spin
-    }
-  }
-  void exit_critical() {
-    lock_.clear(std::memory_order_release);
-  }
+  void enter_critical();
+  void exit_critical();
 };
 
 }  // namespace td

@@ -8,7 +8,7 @@
 
 namespace td {
 
-constexpr int32 MTPROTO_LAYER = 116;
+constexpr int32 MTPROTO_LAYER = 120;
 
 enum class Version : int32 {
   Initial,  // 0
@@ -31,7 +31,7 @@ enum class Version : int32 {
   AddMessageUnsupportedVersion,
   SupportInstantView2_0,
   AddNotificationGroupInfoMaxRemovedMessageId,
-  SupportMinithumbnails, // 20
+  SupportMinithumbnails,  // 20
   AddVideoCallsSupport,
   AddPhotoSizeSource,
   AddFolders,
@@ -39,6 +39,9 @@ enum class Version : int32 {
   AddDiceEmoji,  // 25
   AddAnimationStickers,
   AddDialogPhotoHasAnimation,
+  AddPhotoProgressiveSizes,
+  AddLiveLocationHeading,
+  AddLiveLocationProximityAlertDistance,  // 30
   Next
 };
 
@@ -53,6 +56,7 @@ enum class DbVersion : int32 {
   AddFolders,
   AddScheduledMessages,
   StorePinnedDialogsInBinlog,
+  AddMessageThreadSupport,
   Next
 };
 

@@ -10,6 +10,7 @@
 
 #include "td/telegram/DhCache.h"
 #include "td/telegram/Global.h"
+#include "td/telegram/net/DcAuthManager.h"
 #include "td/telegram/net/DcId.h"
 #include "td/telegram/net/MtprotoHeader.h"
 #include "td/telegram/net/NetQuery.h"
@@ -116,6 +117,25 @@ class GenAuthKeyActor : public Actor {
 };
 
 }  // namespace detail
+
+void Session::PriorityQueue::push(NetQueryPtr query) {
+  auto priority = query->priority();
+  queries_[priority].push(std::move(query));
+}
+
+NetQueryPtr Session::PriorityQueue::pop() {
+  CHECK(!empty());
+  auto it = queries_.begin();
+  auto res = it->second.pop();
+  if (it->second.empty()) {
+    queries_.erase(it);
+  }
+  return res;
+}
+
+bool Session::PriorityQueue::empty() const {
+  return queries_.empty();
+}
 
 Session::Session(unique_ptr<Callback> callback, std::shared_ptr<AuthDataShared> shared_auth_data, int32 raw_dc_id,
                  int32 dc_id, bool is_main, bool use_pfs, bool is_cdn, bool need_destroy,
@@ -344,7 +364,7 @@ void Session::return_query(NetQueryPtr &&query) {
 void Session::flush_pending_invoke_after_queries() {
   while (!pending_invoke_after_queries_.empty()) {
     auto &query = pending_invoke_after_queries_.front();
-    pending_queries_.push_back(std::move(query));
+    pending_queries_.push(std::move(query));
     pending_invoke_after_queries_.pop_front();
   }
 }
@@ -359,7 +379,7 @@ void Session::close() {
     auto &query = it.second.query;
     query->set_message_id(0);
     query->cancel_slot_.clear_event();
-    pending_queries_.push_back(std::move(query));
+    pending_queries_.push(std::move(query));
   }
   sent_queries_.clear();
   sent_containers_.clear();
@@ -367,10 +387,9 @@ void Session::close() {
   flush_pending_invoke_after_queries();
   CHECK(sent_queries_.empty());
   while (!pending_queries_.empty()) {
-    auto &query = pending_queries_.front();
+    auto query = pending_queries_.pop();
     query->set_error_resend();
     return_query(std::move(query));
-    pending_queries_.pop_front();
   }
 
   callback_->on_closed();
@@ -596,6 +615,7 @@ void Session::on_container_sent(uint64 container_id, vector<uint64> msg_ids) {
 void Session::on_message_ack(uint64 id) {
   on_message_ack_impl(id, 1);
 }
+
 void Session::on_message_ack_impl(uint64 id, int32 type) {
   auto cit = sent_containers_.find(id);
   if (cit != sent_containers_.end()) {
@@ -643,6 +663,7 @@ void Session::dec_container(uint64 message_id, Query *query) {
     sent_containers_.erase(it);
   }
 }
+
 void Session::cleanup_container(uint64 message_id, Query *query) {
   if (query->container_id == message_id) {
     // message was sent without any container
@@ -684,8 +705,6 @@ void Session::mark_as_unknown(uint64 id, Query *query) {
 }
 
 Status Session::on_message_result_ok(uint64 id, BufferSlice packet, size_t original_size) {
-  // Steal authorization information.
-  // It is a dirty hack, yep.
   if (id == 0) {
     if (is_cdn_) {
       return Status::Error("Got update from CDN connection");
@@ -718,6 +737,8 @@ Status Session::on_message_result_ok(uint64 id, BufferSlice packet, size_t origi
   VLOG(net_query) << "Return query result " << query_ptr->query;
 
   if (!parser.get_error()) {
+    // Steal authorization information.
+    // It is a dirty hack, yep.
     if (ID == telegram_api::auth_authorization::ID || ID == telegram_api::auth_loginTokenSuccess::ID) {
       if (query_ptr->query->tl_constructor() != telegram_api::auth_importAuthorization::ID) {
         G()->net_query_dispatcher().set_main_dc_id(raw_dc_id_);
@@ -766,8 +787,13 @@ void Session::on_message_result_error(uint64 id, int error_code, BufferSlice mes
     return;
   }
 
-  LOG(DEBUG) << "Session::on_message_result_error " << tag("id", id) << tag("error_code", error_code)
-             << tag("msg", message.as_slice());
+  if (error_code < 0) {
+    LOG(WARNING) << "Session::on_message_result_error from mtproto " << tag("id", id) << tag("error_code", error_code)
+                 << tag("msg", message.as_slice());
+  } else {
+    LOG(DEBUG) << "Session::on_message_result_error " << tag("id", id) << tag("error_code", error_code)
+               << tag("msg", message.as_slice());
+  }
   auto it = sent_queries_.find(id);
   if (it == sent_queries_.end()) {
     return;
@@ -874,6 +900,7 @@ void Session::on_message_info(uint64 id, int32 state, uint64 answer_id, int32 an
     current_info_->connection->resend_answer(answer_id);
   }
 }
+
 Status Session::on_destroy_auth_key() {
   auth_data_.drop_main_auth_key();
   on_auth_key_updated();
@@ -897,7 +924,7 @@ void Session::add_query(NetQueryPtr &&net_query) {
   net_query->debug("Session: pending");
   LOG_IF(FATAL, UniqueId::extract_type(net_query->id()) == UniqueId::BindKey)
       << "Add BindKey query inpo pending_queries_";
-  pending_queries_.emplace_back(std::move(net_query));
+  pending_queries_.push(std::move(net_query));
 }
 
 void Session::connection_send_query(ConnectionInfo *info, NetQueryPtr &&net_query, uint64 message_id) {
@@ -1101,6 +1128,7 @@ void Session::connection_close(ConnectionInfo *info) {
   info->connection->force_close(static_cast<mtproto::SessionConnection::Callback *>(this));
   CHECK(info->state == ConnectionInfo::State::Empty);
 }
+
 bool Session::need_send_check_main_key() const {
   return need_check_main_key_ && auth_data_.get_main_auth_key().id() != being_checked_main_auth_key_id_;
 }
@@ -1130,6 +1158,7 @@ bool Session::need_send_bind_key() const {
   return auth_data_.use_pfs() && !auth_data_.get_bind_flag() &&
          auth_data_.get_tmp_auth_key().id() != being_binded_tmp_auth_key_id_;
 }
+
 bool Session::need_send_query() const {
   return !close_flag_ && !need_check_main_key_ && (!auth_data_.use_pfs() || auth_data_.get_bind_flag()) &&
          !pending_queries_.empty() && !can_destroy_auth_key();
@@ -1313,9 +1342,8 @@ void Session::loop() {
       if (auth_data_.is_ready(Time::now_cached())) {
         if (need_send_query()) {
           while (!pending_queries_.empty() && sent_queries_.size() < MAX_INFLIGHT_QUERIES) {
-            auto &query = pending_queries_.front();
+            auto query = pending_queries_.pop();
             connection_send_query(&main_connection_, std::move(query));
-            pending_queries_.pop_front();
             need_flush = true;
           }
         }
