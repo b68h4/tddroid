@@ -1,70 +1,57 @@
 # tddroid
-## TDLib and TDSharp Build Project
+## TDLib Android Easy Build Project
+### [Precompiled Releases](https://github.com/bsggr78/tddroid/releases)
 
-## NOTES: Please Reread Usage and Reclone Project
-> Use in Your Xamarin Projects or Other Arm Platforms.
+## **Requirements:**
+[TDLib Build Documentation](https://tdlib.github.io/td/build.html) open site, select language / os and follow the instructions **(not run a build commands, follow only requirements instructions)**.
 
-> It Was Built To Compile TDLib Easily And Without The Worries Of Addiction.
 
-## [PreCompile Releases](https://github.com/bsglinux16/tddroid/releases)
+## **Building:**
 
-#### Working Platforms
+- ### _1- Docker_:
+``` 
+Install Docker Your Computer.
+Enter the project folder.
+
+docker build --name tddroid -t .
+Build the image
+
+docker run -it --name tdbuild projectfolder:/app tddroid
+Change `projectfolder` to project folder path (Example: /root/tddroid) and run command.
+Finally building was started!
+Can find the compiled files in `output` folder.
+```  
+- ### _2- Normal_:
+#### Enter the [build-folder](/build-folder) and follow the instructions.
+
+### Supported Architectures:
+- armeabi-v7a (arm)
+- arm64-v8a (aarch64)
 - x86
 - x86_64
-- arm
-  - armeabi-v7a
-  - arm64-v8a
+### Supported Platforms/Programming Languages:
+- Android/All Mobile Programming Languages
 
-#### Working Languages
- - I think it works in all languages :))
- - Excluding Java (Not Working Java Use JNI and Java Build Files [Comment](https://github.com/tdlib/td/issues/77#issuecomment-640719893))
-
-**[Build Folder](tdbuild/td/tddroid/libtdjsonandroid)**
-
-## Changes (v1.6.7/v1.6.0)
-- egramtel / tdsharp Linux Bindings Edited and Adapt LibTdJsonAndroid (tdbuild)
-  - Interop.cs Fixed
-- Ndk-Bundle r21 Included in Project (Easy Compile)
-  - Android Sdk Root Added to build-all.sh File
-- OpenSsl-1.1.1g Builds Collected and Added
-## Changes (v1.6.8)
-- Build.sh Build-All.sh Created Successfully Running
-- SSL_ABI Added Fixed SSL Paths and NDK Paths
-- **export.sh Build Issue Fixed Please Run export.sh for Build.**
-## Changes (v1.6.10)
-- Only Updated Tdlib Codes v1.6.10 and Added Precompile Files Releases Section
-## Used Projects
+### Notes:
+- Files compiled in this project may not work in Android/Java applications [See](https://github.com/tdlib/td/issues/77#issuecomment-640719893).
+- Compilation requires a high power device. Requires over 4 Gb ram. If you have less than 4 Gb ram, check out the tdlib compilation documentation.
+- If you find a problem in the project, be sure to report it from the issue section.
+### Changelog:
+      v1.7.1:
+      - The project has been redesigned.
+      - Docker support added.
+      - More readable document.
+      - Updated to v1.7.1
+      - Deleted Tdsharp (Not required)
+### Used Projects
 > [egramtel/tdsharp - Official TDLib .NET Library](https://github.com/egramtel/tdsharp)
 
 > [tdlib/td - Official TDLib Library](https://github.com/tdlib/td)
 
-> [KDAB/androidopenssl - Extracted PreCompile OpenSsl .so Files Thanks](https://github.com/KDAB/android_openssl)
+> [KDAB/androidopenssl - Replaced Precompiled Openssl libraries thanks](https://github.com/KDAB/android_openssl)
 
-> [levlam Prebuilt Build Archives](https://github.com/tdlib/td/issues/77#issuecomment-640719893)
-## Usage
+> [levlam/Prebuilt Build Scripts](https://github.com/tdlib/td/issues/77#issuecomment-640719893)
 
-- Enter the tdbuild/td/tddroid/libtdjsonandroid Folder
-  - **Run export.sh And Build All Architecture**
-  
-  <s> Run **ANDROID_SDK_ROOT=../../../ndk-bundle ABI="the platform you want to use" SSL_ABI="ABI's equivalent to SSL_ABI" ./build.sh** </s>
-  
-  - **If You Don't Run the export.sh File , Build.sh or Build-All.sh by itself won't work**
-  - **ABI's equivalent to SSL_ABI Available Here --> [Readme 2](https://github.com/bsglinux16/tddroid/blob/master/tdbuild/td/tddroid/libtdjsonandroid/README.md)**
-  
-- When the build is finished go to the build- "platform-ABI" folder
-  - Include the libtdjsonandroid.so File in Your .NET Project
 
-- Open tdsharp/Tdlib.sln Visual Studio and Build the Project
-  - Uninstall the TDLib Package You Downloaded From Nuget and Import the TDLib.dll-TDLib.Api.Dll Files You Just Compiled
 
-- Write Telegram App and build .NET Project
-
-- Finally, put the file libtdjsonandroid.so suitable for the platform on which the application will run into the Debug folder.
-
-### Oh my God It is working on Android and other Arm Platforms! 😳🙂
-### Tested on Xamarin x86 and armeabi-v7a Platforms - Successfuly Working!
-
-#### If You Have a Problem, Be Sure to Report to Issue Section
-#### Note: I Recommend Compiling On The Server Because It Uses High Processor Power While Compiling.
-
-> Telegram Groups [tr]: [Coderator](https://t.me/coderator)  [KodWare](https://t.me/kodware) 
+> Telegram Groups [tr]: [Coderator](https://t.me/coderator)
