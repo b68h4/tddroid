@@ -1,24 +1,17 @@
-Build Command
-ANDROID_SDK_ROOT=../../../ndk-bundle **SSL_ABI=arm** ABI=armeabi-v7a ./build.sh
+## Building
 
-ABI LIST --> SSL_ABI LIST:
-- x86 -->   SSL_ABI=x86
-- x86_64 --> SSL_ABI=x86_64
-- arm  
-  - armeabi-v7a --> SSL_ABI=arm
-  - arm64-v8a -->  SSL_ABI=arm64
+Architecture List:
+- armeabi-v7a
+- arm64-v8a
+- x86
+- x86_64
 
-Example:
+Envirionment Variables:
+- ANDROID_SDK_ROOT : Setting the Android NDK path ('../ndk' is built-in Android NDK).
+- ABI : Setting the Architecture.
 
-If ABI=arm64-v8a Then 
-SSL_ABI=arm64
-
-If ABI=armeabi-v7a Then
-SSL_ABI=arm
-
-ANDROID_SDK_ROOT=../../../ndk-bundle 
-
-../../../ndk-bundle If you want to use another bundle you can change the path
+#### If you are going to compile all architectures ./build-all.sh.
 
 
-Precompile Folder: build-x86 build-x86_64 build-armeabi-v7a build-arm64-v8a
+#### If you are going to compile a single architecture:
+- ANDROID_SDK_ROOT=../ndk ABI=selectedabi ./build.sh
