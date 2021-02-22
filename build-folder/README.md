@@ -14,4 +14,4 @@ Envirionment Variables:
 
 
 #### If you are going to compile a single architecture:
-- ANDROID_SDK_ROOT=../ndk ABI=selectedabi ./build.sh
+- ANDROID_SDK_ROOT=../ndk ABI=selectedarchitecture ./build.sh
