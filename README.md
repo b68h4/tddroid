@@ -3,8 +3,11 @@
 ### [Precompiled Releases](https://github.com/bsggr78/tddroid/releases)
 
 ## **Requirements:**
-[TDLib Build Documentation](https://tdlib.github.io/td/build.html) open site, select language / os and follow the instructions **(not run a build commands, follow only requirements instructions)**.
-
+   [TDLib Build Documentation](https://tdlib.github.io/td/build.html) open site, select language / os and follow the instructions **(not run a build commands, follow only    requirements instructions)**.
+   ### [Important] Clone the Latest TDLib Source Code to tdlib-src
+``` 
+git clone https://github.com/tdlib/td tdlib-src
+```
 
 ## **Building:**
 
@@ -22,7 +25,7 @@ Finally building was started!
 Can find the compiled files in `output` folder.
 ```  
 - ### _2- Normal_:
-#### Enter the [build-folder](/build-folder) and follow the instructions.
+  #### Enter the [build-folder](/build-folder) and follow the instructions.
 
 ### Supported Architectures:
 - armeabi-v7a (arm)
@@ -38,7 +41,7 @@ Can find the compiled files in `output` folder.
 - If you find a problem in the project, be sure to report it from the issue section.
 ### Changelog:
       v1.7.1:
-      - The project has been redesigned.
+      - The project has been redesigned. 
       - Docker support added.
       - More readable document.
       - Updated to v1.7.1
@@ -54,4 +57,4 @@ Can find the compiled files in `output` folder.
 
 
 
-> Telegram Groups [tr]: [Coderator](https://t.me/coderator)
+## Telegram Channel: [Coderator](https://t.me/coderator)
