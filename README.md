@@ -19,7 +19,7 @@ Enter the project folder.
 docker build --name tddroid -t .
 Build the image
 
-docker run -it --name tdbuild projectfolder:/app tddroid
+docker run -it --name tdbuild -v projectfolder:/app tddroid
 Change `projectfolder` to project folder path (Example: /root/tddroid) and run command.
 Finally building was started!
 Can find the compiled files in `output` folder.
