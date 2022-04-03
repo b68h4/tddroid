@@ -16,7 +16,7 @@ git clone https://github.com/tdlib/td tdlib-src
 Install Docker Your Computer.
 Enter the project folder.
 
-docker build --name tddroid -t .
+docker build -t tddroid .
 Build the image
 
 docker run -it --name tdbuild -v projectfolder:/app tddroid
